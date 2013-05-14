@@ -115,7 +115,6 @@
 /**
  * @brief Key push-button
  */
-   /*原始代码
 #define KEY_BUTTON_PIN                   GPIO_Pin_9
 #define KEY_BUTTON_GPIO_PORT             GPIOB
 #define KEY_BUTTON_GPIO_CLK              RCC_APB2Periph_GPIOB
@@ -123,28 +122,7 @@
 #define KEY_BUTTON_EXTI_PORT_SOURCE      GPIO_PortSourceGPIOB
 #define KEY_BUTTON_EXTI_PIN_SOURCE       GPIO_PinSource9
 #define KEY_BUTTON_EXTI_IRQn             EXTI9_5_IRQn
-   */
-   /*
-   //移植到神舟IV号，修改代码
-#define KEY_BUTTON_PIN                   GPIO_Pin_14
-#define KEY_BUTTON_GPIO_PORT             GPIOB
-#define KEY_BUTTON_GPIO_CLK              RCC_APB2Periph_GPIOB
-#define KEY_BUTTON_EXTI_LINE             EXTI_Line14
-#define KEY_BUTTON_EXTI_PORT_SOURCE      GPIO_PortSourceGPIOB
-#define KEY_BUTTON_EXTI_PIN_SOURCE       GPIO_PinSource14
-#define KEY_BUTTON_EXTI_IRQn             EXTI15_10_IRQn
-   */
-   //移植到测控DI0，修改代码
-#define KEY_BUTTON_PIN                   GPIO_Pin_0
-#define KEY_BUTTON_GPIO_PORT             GPIOE
-#define KEY_BUTTON_GPIO_CLK              RCC_APB2Periph_GPIOE
-#define KEY_BUTTON_EXTI_LINE             EXTI_Line0
-#define KEY_BUTTON_EXTI_PORT_SOURCE      GPIO_PortSourceGPIOE
-#define KEY_BUTTON_EXTI_PIN_SOURCE       GPIO_PinSource0
-#define KEY_BUTTON_EXTI_IRQn             EXTI0_IRQn
-   
 /**
-   
   * @}
   */ 
 

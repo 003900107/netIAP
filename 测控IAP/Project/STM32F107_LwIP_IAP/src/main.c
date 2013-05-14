@@ -26,26 +26,13 @@
 #include "httpserver.h" 
 #include "tftpserver.h"
 #include "flash_if.h"
-#include "helloworld.h"
-
-#include "stm32f10x_bkp.h"
-
-#include "stdio.h"
 
 /* Private typedef -----------------------------------------------------------*/
 typedef  void (*pFunction)(void);
 
 /* Private define ------------------------------------------------------------*/
 #define SYSTEMTICK_PERIOD_MS  10
-
-#ifdef __GNUC__
-  /* With GCC/RAISONANCE, small printf (option LD Linker->Libraries->Small printf
-     set to 'Yes') calls __io_putchar() */
-  #define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
-#else
-  #define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
-#endif /* __GNUC__ */
-
+#define ETH_RESET    GPIOC, GPIO_Pin_10
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
 __IO uint32_t LocalTime = 0; /* this variable is used to create a time reference incremented by 10ms */
@@ -53,15 +40,9 @@ uint32_t timingdelay;
 pFunction Jump_To_Application;
 uint32_t JumpAddress;
 
-volatile uint16_t flag = 0;
-
-static uint32_t mark = 0;
-#define  mark_addr    (*((volatile uint8_t  *)0x0807FFF0uL))
-
 /* Private function prototypes -----------------------------------------------*/
 void System_Periodic_Handle(void);
-void USART2_init(void);
-void GPIO_config(void);
+
 /* Private functions ---------------------------------------------------------*/
 
 /**
@@ -71,39 +52,46 @@ void GPIO_config(void);
   */
 int main(void)
 {
-  //DI0配置
-  GPIO_config();
+  FlagStatus status;
+  uint16_t bak_dr10;
+  //uint16_t bak_dr9;
   
-  //test
-  uint32_t user_flash = USER_FLASH_FIRST_PAGE_ADDRESS;
-
-  //DI0断开则读为1，跳转程序  
-  if(GPIO_ReadInputDataBit(GPIOE,GPIO_Pin_9) != 0x00) 
-  {
-    /* Check if valid stack address (RAM address) then jump to user application */
-    if (((*(__IO uint32_t*)USER_FLASH_FIRST_PAGE_ADDRESS) & 0x2FFE0000 ) == 0x20000000)
-    {
-      /* Jump to user application */
-      JumpAddress = *(__IO uint32_t*) (USER_FLASH_FIRST_PAGE_ADDRESS + 4);
-      Jump_To_Application = (pFunction) JumpAddress;
-      /* Initialize user application's Stack Pointer */
-      __set_MSP(*(__IO uint32_t*) USER_FLASH_FIRST_PAGE_ADDRESS);
-      Jump_To_Application();
-    }
-    else
-    {
-      /* do nothing */
-      while(1);
-    }
-    while(1)
-    {}
-  }
-  //DI0接通则读为0，升级程序
-  else 
+  //RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR | RCC_APB1Periph_BKP, ENABLE);
+  //PWR_BackupAccessCmd(ENABLE);  
+  
+  //bak_dr10 = BKP_ReadBackupRegister(BKP_DR10);
+  //bak_dr9 = BKP_ReadBackupRegister(BKP_DR9);
+  
+  //BKP_WriteBackupRegister(BKP_DR10, 0x0707);
+  //BKP_WriteBackupRegister(BKP_DR9, 0x0001);
+  
+  
+  /* Test if Key push-button on STM3210C-EVAL Board is not pressed */
+  //if((bak_dr10 == 0x0707) /*&& (bak_dr9 != 0x0000)*/)
+  if(1)
   {
     /* Setup STM32 system (clocks, Ethernet, GPIO, NVIC) and STM3210C-EVAL resources */
     System_Setup();
-  
+    
+    Delay(1000);
+    //可添加延时, 用以确保DM9000启动时电压满足芯片要求
+    //"nRST must not go high until after the VDDIO and VDD_CORE supplies are stable"  手册P51
+    GPIO_WriteBit(ETH_RESET,  Bit_SET);   //拉高DM9000 nRST, 复位启动    
+    /* Configure the Ethernet peripheral */
+    Ethernet_Configuration();
+    
+    /*
+    //判断设备是否是初次上电, 如果'是', 重启一次, 确保以太网初始化正常
+    status = RCC_GetFlagStatus(RCC_FLAG_SFTRST);
+    RCC_ClearFlag(); 
+    if(!status)
+    {   
+      Delay(10);
+      
+      NVIC_SystemReset();
+    }
+    */
+ 
     /* Initilaize the LwIP stack */
     LwIP_Init();
     
@@ -111,7 +99,7 @@ int main(void)
     /* Initilaize the webserver module */
     IAP_httpd_init();
 #endif
-  
+    
 #ifdef USE_IAP_TFTP    
     /* Initialize the TFTP server */
     IAP_tftpd_init();
@@ -128,76 +116,34 @@ int main(void)
       }
       /* Periodic tasks */
       System_Periodic_Handle();
-    }
+    }    
   }
+  /* enter in IAP mode */
+  else
+  {
+    /* Key push-button not pressed: jump to user application */
+    
+    /* Check if valid stack address (RAM address) then jump to user application */
+    if (((*(__IO uint32_t*)USER_FLASH_FIRST_PAGE_ADDRESS) & 0x2FFE0000 ) == 0x20000000)
+    {
+      /* Jump to user application */
+      JumpAddress = *(__IO uint32_t*) (USER_FLASH_FIRST_PAGE_ADDRESS + 4);
+      Jump_To_Application = (pFunction) JumpAddress;
+      /* Initialize user application's Stack Pointer */
+      __set_MSP(*(__IO uint32_t*) USER_FLASH_FIRST_PAGE_ADDRESS);
+      Jump_To_Application();
+    }
+    else
+    {/* Otherwise, do nothing */
+      /* LED3 (RED) ON to indicate bad software (when not valid stack address) */
+      //STM_EVAL_LEDInit(LED3);
+      //STM_EVAL_LEDOn(LED3);
+      /* do nothing */
+      while(1);
+    }    
+  }
+  
   return 0;
-}
-
-void GPIO_config(void)
-{
-  GPIO_InitTypeDef GPIO_InitStructure;
-  
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOE, ENABLE);
-  
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
-  GPIO_Init(GPIOE, &GPIO_InitStructure);
-  
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD, ENABLE);
-  
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10;
-  GPIO_Init(GPIOD, &GPIO_InitStructure);
-}
-
-void USART2_init(void)
-{
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD | RCC_APB2Periph_AFIO,ENABLE);
-  RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
-  
-  /*config GPIO of USART2*/
-   GPIO_InitTypeDef GPIO_InitStructure;
-   
-   GPIO_PinRemapConfig(GPIO_Remap_USART2,ENABLE);
-   
-   GPIO_InitStructure.GPIO_Pin=GPIO_Pin_5;          /*PD5 for 232 Tx*/
-   GPIO_InitStructure.GPIO_Speed=GPIO_Speed_50MHz;
-   GPIO_InitStructure.GPIO_Mode=GPIO_Mode_AF_PP;
-   GPIO_Init(GPIOD,&GPIO_InitStructure);
-   
-   GPIO_InitStructure.GPIO_Pin=GPIO_Pin_6;          /*PD6 for 232 Rx*/
-   GPIO_InitStructure.GPIO_Speed=GPIO_Speed_50MHz;
-   GPIO_InitStructure.GPIO_Mode=GPIO_Mode_IN_FLOATING;
-   GPIO_Init(GPIOD,&GPIO_InitStructure);
-   
-   /*Initiate USART2*/
-   USART_InitTypeDef USART_InitStructure;
-   
-   USART_InitStructure.USART_BaudRate=115200;
-   USART_InitStructure.USART_WordLength=USART_WordLength_8b;
-   USART_InitStructure.USART_StopBits=USART_StopBits_1;
-   USART_InitStructure.USART_Parity=USART_Parity_No;
-   USART_InitStructure.USART_HardwareFlowControl=USART_HardwareFlowControl_None;
-   USART_InitStructure.USART_Mode=USART_Mode_Rx | USART_Mode_Tx;
-   
-   USART_Init(USART2,&USART_InitStructure);
-   
-   //USART_ITConfig(USART2,USART_IT_RXNE,ENABLE);
-   
-   USART_Cmd(USART2,ENABLE);
-}
-
-PUTCHAR_PROTOTYPE
-{
-  /* Place your implementation of fputc here */
-  /* e.g. write a character to the USART */
-  USART_SendData(USART2, (uint8_t) ch);
-
-  /* Loop until the end of transmission */
-  while (USART_GetFlagStatus(USART2, USART_FLAG_TC) == RESET)
-  {}
-
-  return ch;
 }
 
 /**

@@ -57,8 +57,8 @@
 #endif
 
 
-#define USER_FLASH_LAST_PAGE_ADDRESS  0x0803F800
-#define USER_FLASH_END_ADDRESS        0x0803FFFF  
+#define USER_FLASH_LAST_PAGE_ADDRESS  /*0x0803F800*/0x0803B800
+#define USER_FLASH_END_ADDRESS        /*0x0803FFFF*/0x0803BFFF
    
 /* MAC ADDRESS*/
 #define MAC_ADDR0   0
@@ -77,14 +77,14 @@
 /*NETMASK*/
 #define NETMASK_ADDR0   255
 #define NETMASK_ADDR1   255
-#define NETMASK_ADDR2   0
+#define NETMASK_ADDR2   255
 #define NETMASK_ADDR3   0
 
 /*Gateway Address*/
 #define GW_ADDR0   172
 #define GW_ADDR1   20
 #define GW_ADDR2   100
-#define GW_ADDR3   10  
+#define GW_ADDR3   200  
 
 /*UserID and Password definition*/
 #define USERID  "user"

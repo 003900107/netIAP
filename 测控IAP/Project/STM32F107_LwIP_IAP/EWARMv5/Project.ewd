@@ -620,7 +620,7 @@
         </option>
         <option>
           <name>CCPEMicroJtagSpeed</name>
-          <state>1000</state>
+          <state>#UNINITIALIZED#</state>
         </option>
         <option>
           <name>CCJPEMicroShowSettings</name>

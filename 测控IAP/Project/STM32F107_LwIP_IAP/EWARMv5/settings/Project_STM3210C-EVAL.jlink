@@ -12,4 +12,3 @@ BPDuringExecution = 0
 [CPU]
 OverrideMemMap = 0
 AllowSimulation = 1
-ScriptFile=""

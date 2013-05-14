@@ -159,6 +159,8 @@ static void IAP_wrq_recv_callback(void *_args, struct udp_pcb *upcb, struct pbuf
   uint32_t data_buffer[128];
   char message[20];
   u16 count=0;
+  
+  uint16_t bak_dr10;
  
 
   if (pkt_buf->len != pkt_buf->tot_len)
@@ -185,6 +187,7 @@ static void IAP_wrq_recv_callback(void *_args, struct udp_pcb *upcb, struct pbuf
        
     /* update our block number to match the block number just received */
     args->block++;
+    
     /* update total bytes  */
     (args->tot_bytes) += (pkt_buf->len - TFTP_DATA_PKT_HDR_LEN);
 
@@ -209,6 +212,9 @@ static void IAP_wrq_recv_callback(void *_args, struct udp_pcb *upcb, struct pbuf
   {
     IAP_tftp_cleanup_wr(upcb, args);
     pbuf_free(pkt_buf);
+    
+    BKP_WriteBackupRegister(BKP_DR10, 0x0000);
+    bak_dr10 = BKP_ReadBackupRegister(BKP_DR10);
     
 #ifdef USE_LCD
     LCD_SetTextColor(White);
@@ -267,9 +273,11 @@ static int IAP_tftp_process_write(struct udp_pcb *upcb, struct ip_addr *to, int 
   Flash_Write_Address = USER_FLASH_FIRST_PAGE_ADDRESS;    
   /* initiate the write transaction by sending the first ack */
   IAP_tftp_send_ack_packet(upcb, to, to_port, args->block);
+  
 #ifdef USE_LCD
   LCD_DisplayStringLine(Line9, (char*)"State: Programming.."); 
 #endif
+  
   return 0;
 }
 
@@ -347,6 +355,7 @@ static void IAP_tftp_recv_callback(void *arg, struct udp_pcb *upcb, struct pbuf 
     /* Start the TFTP write mode*/
     IAP_tftp_process_write(upcb_tftp_data, addr, port);
   }
+  
   pbuf_free(pkt_buf);
 }
 
